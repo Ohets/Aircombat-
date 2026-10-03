@@ -18,7 +18,20 @@
 const stateKey='aircombat_v4_state';
 let gameState={currentLevel:1,maxLevels:40,credits:100,plane:'starter',owned:['starter']};try{const s=JSON.parse(localStorage.getItem(stateKey));if(s)gameState={...gameState,...s}}catch(e){}
 const planes={starter:{name:'Falcon',price:0,color:0x3c6f9d,damage:1,fireRate:260,speed:1},hawk:{name:'Hawk',price:300,color:0x3ccf8c,damage:2,fireRate:220,speed:1.12},viper:{name:'Viper',price:700,color:0xd34d4d,damage:3,fireRate:180,speed:1.25},storm:{name:'Storm X',price:1200,color:0xa65cff,damage:5,fireRate:145,speed:1.42}};
-let paypalTimer=null,paypalStartedAt=0,paypalWaiting=false;let audioCtx=null,masterGain=null,engineOsc=null,rainSource=null,rainGain=null;
+let paypalTimer=null,paypalStartedAt=0,paypalWaiting=false;let audioCtx=null,masterGain=null,engineOsc=null,rainSource=null,rainGain=null;let realRain=null,realShots=[];
+function initRealAudio(){
+  if(realRain)return;
+  realRain=new Audio('https://raw.githubusercontent.com/opstiger/aiba-percent-battle/main/assets/aiba-audio/rain-light-loop.mp3');
+  realRain.loop=true;realRain.preload='auto';realRain.volume=.72;
+  realShots=[
+    new Audio('https://raw.githubusercontent.com/yegors/hard-lines/main/public/audio/p226-report-0.wav'),
+    new Audio('https://raw.githubusercontent.com/yegors/hard-lines/main/public/audio/p226-report-1.wav'),
+    new Audio('https://raw.githubusercontent.com/yegors/hard-lines/main/public/audio/mp5-report-0.wav')
+  ];
+  realShots.forEach(a=>{a.preload='auto';a.volume=.9});
+}
+function playRealRain(){initRealAudio();if(realRain){realRain.currentTime=0;realRain.play().catch(()=>{})}}
+function playRealShot(){initRealAudio();const a=realShots[Math.floor(Math.random()*realShots.length)];if(a){a.currentTime=0;a.play().catch(()=>{})}}
 function initAudio(){
   try{
     if(!audioCtx){
@@ -52,7 +65,7 @@ function startRainSound(){
   const filter=audioCtx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=1700;
   rainGain=audioCtx.createGain();rainGain.gain.value=.09;rainSource.connect(filter);filter.connect(rainGain);rainGain.connect(masterGain);rainSource.start();
 }
-function playShot(){initAudio();tone(170,.10,'square',.22,150)}
+function playShot(){initAudio();playRealShot();tone(170,.06,'square',.08,150)}
 function playExplosion(){initAudio();tone(90,.28,'sawtooth',.25,-65);setTimeout(()=>tone(45,.22,'triangle',.18,-20),45)}
 function playMission(success){tone(success?620:120,.18,'sine',.12,success?260:-50);setTimeout(()=>tone(success?880:70,.28,'sine',.10,success?180:-20),110)}
 function playBuy(){tone(520,.09,'sine',.10,180);setTimeout(()=>tone(780,.14,'sine',.10,220),90)}
@@ -68,7 +81,7 @@ function makeSea(){const geo=new THREE.PlaneGeometry(3000,3000,80,80);const pos=
 function makeRain(){const count=1800,geo=new THREE.BufferGeometry(),a=new Float32Array(count*3);for(let i=0;i<count;i++){a[i*3]=(Math.random()-.5)*180;a[i*3+1]=Math.random()*100-10;a[i*3+2]=-Math.random()*500+80}geo.setAttribute('position',new THREE.BufferAttribute(a,3));rain=new THREE.Points(geo,new THREE.PointsMaterial({color:0xbdefff,size:.16,transparent:true,opacity:.65}));scene.add(rain)}
 function init(){const c=document.getElementById('canvas-container');scene=new THREE.Scene();scene.background=new THREE.Color(0x071522);scene.fog=new THREE.FogExp2(0x071522,.008);camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,1200);renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));c.appendChild(renderer.domElement);scene.add(new THREE.AmbientLight(0x8aa7b8,.55));const sun=new THREE.DirectionalLight(0xc7eaff,.75);sun.position.set(-30,80,20);scene.add(sun);makeSea();makeRain();player=createJet(planes[gameState.plane].color);scene.add(player);camera.position.set(0,8,11);addEventListener('resize',resize);initControls();hud()}
 function spawn(){enemyJets.forEach(e=>scene.remove(e));enemyJets=[];gameState.targetsLeft=2+gameState.currentLevel;for(let i=0;i<gameState.targetsLeft;i++){const e=createJet(0xd52e3f);e.position.set((Math.random()-.5)*100,Math.random()*35-3,-80-Math.random()*260);e.rotation.y=Math.PI;scene.add(e);enemyJets.push(e)}hud()}
-function start(){initAudio();tone(440,.12,'sine',.18,220);startEngineSound();startRainSound();document.getElementById('menu').classList.add('hidden');document.getElementById('result').classList.add('hidden');player=newPlayer();player.position.set(0,7,0);spawn();isPlaying=true}
+function start(){initAudio();initRealAudio();tone(440,.12,'sine',.18,220);startEngineSound();startRainSound();playRealRain();document.getElementById('menu').classList.add('hidden');document.getElementById('result').classList.add('hidden');player=newPlayer();player.position.set(0,7,0);spawn();isPlaying=true}
 function newPlayer(){if(player)scene.remove(player);player=createJet(planes[gameState.plane].color);scene.add(player);return player}
 function shoot(){if(!isPlaying)return;const p=planes[gameState.plane],now=performance.now();if(now-lastShot<p.fireRate)return;lastShot=now;playShot();for(let k=0;k<p.damage;k++){const b=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,2.4,5),new THREE.MeshBasicMaterial({color:0x7ff7ff}));b.rotation.x=Math.PI/2;b.position.copy(player.position);b.position.x+=(k-(p.damage-1)/2)*.35;b.position.z-=2;scene.add(b);bullets.push(b)}}
 function resetPayPalTimer(){if(paypalTimer){clearInterval(paypalTimer);paypalTimer=null}paypalStartedAt=0;paypalWaiting=false}
