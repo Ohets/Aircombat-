@@ -38,25 +38,22 @@ window.SDK_OPTIONS = {
     if (!event || !event.name) return;
     if (event.name === "SDK_GAME_PAUSE") {
       window.gameMonetizePausedAt = performance.now();
-      window.gameMonetizeWasPlaying = !!window.isPlaying;
-      if (typeof window.isPlaying !== "undefined") window.isPlaying = false;
-      if (window.masterGain && window.audioCtx) {
-        try { window.masterGain.gain.setTargetAtTime(0, window.audioCtx.currentTime, 0.03); } catch (e) {}
-      }
-      if (window.realRain) window.realRain.volume = 0;
-      if (window.realShots) window.realShots.forEach(function (a) { a.volume = 0; });
+      try { window.gameMonetizeWasPlaying = !!isPlaying; isPlaying = false; } catch (e) { window.gameMonetizeWasPlaying = false; }
+      try { if (masterGain && audioCtx) masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.03); } catch (e) {}
+      try { if (realRain) realRain.volume = 0; } catch (e) {}
+      try { if (realShots) realShots.forEach(function (a) { a.volume = 0; }); } catch (e) {}
     } else if (event.name === "SDK_GAME_START") {
-      if (window.gameMonetizeWasPlaying) {
-        if (typeof window.isPlaying !== "undefined") window.isPlaying = true;
-        if (typeof window.missionStartAt === "number" && window.gameMonetizePausedAt) {
-          window.missionStartAt += performance.now() - window.gameMonetizePausedAt;
+      try {
+        if (window.gameMonetizeWasPlaying) {
+          isPlaying = true;
+          if (typeof missionStartAt === "number" && window.gameMonetizePausedAt) {
+            missionStartAt += performance.now() - window.gameMonetizePausedAt;
+          }
         }
-      }
-      if (window.masterGain && window.audioCtx) {
-        try { window.masterGain.gain.setTargetAtTime(0.55, window.audioCtx.currentTime, 0.08); } catch (e) {}
-      }
-      if (window.realRain) window.realRain.volume = 0.3;
-      if (window.realShots) window.realShots.forEach(function (a) { a.volume = 0.9; });
+      } catch (e) {}
+      try { if (masterGain && audioCtx) masterGain.gain.setTargetAtTime(0.55, audioCtx.currentTime, 0.08); } catch (e) {}
+      try { if (realRain) realRain.volume = 0.3; } catch (e) {}
+      try { if (realShots) realShots.forEach(function (a) { a.volume = 0.9; }); } catch (e) {}
       window.gameMonetizePausedAt = 0;
       window.gameMonetizeWasPlaying = false;
     }
